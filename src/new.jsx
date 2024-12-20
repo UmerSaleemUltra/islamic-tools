@@ -12,14 +12,15 @@ const IslamicTools = () => {
   const [deviceDirection, setDeviceDirection] = useState(0);
   const [nextPrayer, setNextPrayer] = useState(null);
   const [calendar, setCalendar] = useState(null);
-  const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
+  
+
+  const KARACHI_COORDINATES = { latitude: 24.8607, longitude: 67.0011 };
 
   useEffect(() => {
-    // Fetch initial data
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          `https://api.aladhan.com/v1/timings?latitude=24.8607&longitude=67.0011`
+          `https://api.aladhan.com/v1/timings?latitude=${KARACHI_COORDINATES.latitude}&longitude=${KARACHI_COORDINATES.longitude}`
         );
         const data = response.data.data;
         setPrayerTimes(data.timings);
@@ -45,26 +46,54 @@ const IslamicTools = () => {
       }
     };
 
+    const fetchQibla = async () => {
+      try {
+        const response = await axios.get(
+          `https://api.aladhan.com/v1/qibla/${KARACHI_COORDINATES.latitude}/${KARACHI_COORDINATES.longitude}`
+        );
+        setQiblaDirection(response.data.data.direction);
+      } catch (error) {
+        console.error("Error fetching Qibla direction:", error);
+      }
+    };
+
     fetchData();
+    fetchQibla();
   }, []);
 
   useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
-    }
+    if (!prayerTimes) return;
 
-    // Listen for device orientation changes
+    const calculateNextPrayer = () => {
+      const now = new Date();
+      const times = Object.entries(prayerTimes).map(([key, value]) => ({
+        name: key,
+        time: new Date(`${now.toDateString()} ${value}`),
+      }));
+      const upcoming = times.find(({ time }) => time > now) || times[0];
+      const countdownInSeconds = Math.max(0, Math.floor((upcoming.time - now) / 1000));
+    
+      const hours = Math.floor(countdownInSeconds / 3600);
+      const minutes = Math.floor((countdownInSeconds % 3600) / 60);
+      const seconds = countdownInSeconds % 60;
+    
+      setNextPrayer({
+        ...upcoming,
+        countdown: `${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
+      });
+    };
+    
+
+    const interval = setInterval(() => {
+      calculateNextPrayer();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [prayerTimes]);
+
+  useEffect(() => {
     if (window.DeviceOrientationEvent) {
       window.addEventListener("deviceorientation", (event) => {
         setDeviceDirection(event.alpha || 0);
@@ -72,29 +101,10 @@ const IslamicTools = () => {
     }
   }, []);
 
-  useEffect(() => {
-    // Fetch Qibla direction based on user's location
-    if (userLocation.latitude && userLocation.longitude) {
-      const fetchQibla = async () => {
-        try {
-          const response = await axios.get(
-            `https://api.aladhan.com/v1/qibla/${userLocation.latitude}/${userLocation.longitude}`
-          );
-          setQiblaDirection(response.data.data.direction);
-        } catch (error) {
-          console.error("Error fetching Qibla direction:", error);
-        }
-      };
-      fetchQibla();
-    }
-  }, [userLocation]);
-
   const tasbeehReset = () => {
     setTasbeehCount(0);
     setZikr("SubhanAllah");
   };
-
-  const qiblaRelativeDirection = (qiblaDirection - deviceDirection + 360) % 360;
 
   if (!prayerTimes || !date || qiblaDirection === null || !calendar) {
     return (
@@ -103,6 +113,8 @@ const IslamicTools = () => {
       </div>
     );
   }
+
+  const qiblaRelativeDirection = (qiblaDirection - deviceDirection + 360) % 360;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
@@ -129,29 +141,34 @@ const IslamicTools = () => {
             />
           </div>
 
-          {/* Qibla Compass */}
-          <div className="flex flex-col items-center mb-4">
-            <Typography variant="body1" className="mb-2 font-semibold">
-              Qibla Direction
-            </Typography>
-            <div
-              className="h-40 w-40 rounded-full border-4 border-green-500 flex items-center justify-center relative bg-white shadow-lg"
-              style={{
-                transform: `rotate(${qiblaRelativeDirection}deg)`,
-              }}
-            >
-              <div
-                className="h-2 w-12 bg-red-500 absolute top-1/2 transform -translate-y-1/2"
-                style={{
-                  transformOrigin: "center",
-                }}
-              ></div>
-              <div className="h-6 w-6 bg-green-500 rounded-full"></div>
-            </div>
-            <Typography variant="body2" className="text-gray-600 mt-2">
-              Rotate your device until the red pointer aligns with the green circle to find the Qibla.
-            </Typography>
-          </div>
+          {qiblaDirection !== null && (
+  <div className="flex flex-col items-center mb-4">
+    <Typography variant="body1" className="mb-2 font-semibold">
+      {qiblaDirection !== null ? "Here is the Qibla" : "Fetching Qibla..."}
+    </Typography>
+
+    {/* Qibla Compass */}
+    <div
+      className="h-40 w-40 rounded-full border-4 border-green-500 flex items-center justify-center relative bg-white shadow-lg"
+      style={{
+        transform: `rotate(${qiblaRelativeDirection}deg)`,
+      }}
+    >
+      {/* Compass Needle */}
+      <div
+        className="h-2 w-12 bg-red-500 absolute top-1/2 transform -translate-y-1/2"
+        style={{
+          transformOrigin: "center",
+          transform: `rotate(${qiblaRelativeDirection}deg)`,
+        }}
+      ></div>
+
+      {/* Inner Circle to Represent Qibla Center */}
+      <div className="h-6 w-6 bg-green-500 rounded-full"></div>
+    </div>
+  </div>
+)}
+
 
           {/* Tasbeeh Counter */}
           <div className="flex flex-col items-center mb-4">
@@ -177,6 +194,39 @@ const IslamicTools = () => {
                 Reset
               </Button>
             </div>
+          </div>
+
+          {/* Prayer Countdown */}
+     {/* Prayer Countdown */}
+<div className="flex flex-col items-center mb-4">
+  <Typography variant="body1" className="mb-2">
+    Next Prayer: {nextPrayer?.name}
+  </Typography>
+  <Typography variant="h6" className="font-bold">
+    Time Left: {nextPrayer?.countdown || "00:00:00"}
+  </Typography>
+</div>
+
+        </CardContent>
+      </Card>
+
+      {/* Hijri Month Calendar */}
+      <Card className="w-full max-w-md shadow-md">
+        <CardContent>
+          <Typography variant="h6" className="text-center mb-2">
+            {date.hijri.month} {date.hijri.year}
+          </Typography>
+          <div className="grid grid-cols-7 gap-2">
+            {calendar.map((day, index) => (
+              <div
+                key={index}
+                className={`text-center py-2 rounded ${
+                  day.date.gregorian.day === date.gregorian.day ? "bg-green-500 text-white" : "bg-gray-200"
+                }`}
+              >
+                {day.date.hijri.day}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
