@@ -1,108 +1,100 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Typography, Switch, Card, CardContent, Button, TextField } from "@mui/material";
+import {
+  Typography,
+  Switch,
+  Card,
+  CardContent,
+  Button,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+} from "@mui/material";
+import { Add, Delete } from "@mui/icons-material";
 
 const IslamicTools = () => {
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [date, setDate] = useState(null);
   const [showIslamicDate, setShowIslamicDate] = useState(true);
-  const [tasbeehCount, setTasbeehCount] = useState(0);
-  const [zikr, setZikr] = useState("SubhanAllah");
+  const [customZikrList, setCustomZikrList] = useState(["SubhanAllah", "Alhamdulillah", "Allahu Akbar"]);
+  const [newZikr, setNewZikr] = useState("");
   const [qiblaDirection, setQiblaDirection] = useState(null);
   const [deviceDirection, setDeviceDirection] = useState(0);
-  const [nextPrayer, setNextPrayer] = useState(null);
-  const [calendar, setCalendar] = useState(null);
-  const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
-    // Fetch initial data
-    const fetchData = async () => {
+    const fetchLocationAndData = async () => {
       try {
-        const response = await axios.get(
-          `https://api.aladhan.com/v1/timings?latitude=24.8607&longitude=67.0011`
-        );
-        const data = response.data.data;
-        setPrayerTimes(data.timings);
-        setDate({
-          gregorian: {
-            day: data.date.gregorian.day,
-            month: data.date.gregorian.month.en,
-            year: data.date.gregorian.year,
-          },
-          hijri: {
-            day: data.date.hijri.day,
-            month: data.date.hijri.month.en,
-            year: data.date.hijri.year,
-          },
-        });
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            setUserLocation({ latitude, longitude });
 
-        const calendarResponse = await axios.get(
-          `https://api.aladhan.com/v1/hijriCalendarByCity?city=Karachi&country=Pakistan&month=${data.date.hijri.month.number}&year=${data.date.hijri.year}`
+            const qiblaResponse = await axios.get(
+              `https://api.aladhan.com/v1/qibla/${latitude}/${longitude}`
+            );
+            setQiblaDirection(qiblaResponse.data.data.direction);
+          },
+          (error) => {
+            console.error("Error getting location:", error);
+          }
         );
-        setCalendar(calendarResponse.data.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
 
-    fetchData();
+    fetchLocationAndData();
   }, []);
 
   useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
-    }
+    const handleDeviceOrientation = (event) => {
+      if (event.alpha !== null) {
+        setDeviceDirection(event.alpha);
+      }
+    };
 
-    // Listen for device orientation changes
     if (window.DeviceOrientationEvent) {
-      window.addEventListener("deviceorientation", (event) => {
-        setDeviceDirection(event.alpha || 0);
-      });
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        DeviceOrientationEvent.requestPermission()
+          .then((response) => {
+            if (response === "granted") {
+              window.addEventListener("deviceorientation", handleDeviceOrientation);
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener("deviceorientation", handleDeviceOrientation);
+      }
     }
+
+    return () => window.removeEventListener("deviceorientation", handleDeviceOrientation);
   }, []);
 
-  useEffect(() => {
-    // Fetch Qibla direction based on user's location
-    if (userLocation.latitude && userLocation.longitude) {
-      const fetchQibla = async () => {
-        try {
-          const response = await axios.get(
-            `https://api.aladhan.com/v1/qibla/${userLocation.latitude}/${userLocation.longitude}`
-          );
-          setQiblaDirection(response.data.data.direction);
-        } catch (error) {
-          console.error("Error fetching Qibla direction:", error);
-        }
-      };
-      fetchQibla();
+  const addZikr = () => {
+    if (newZikr.trim()) {
+      setCustomZikrList([...customZikrList, newZikr]);
+      setNewZikr("");
     }
-  }, [userLocation]);
-
-  const tasbeehReset = () => {
-    setTasbeehCount(0);
-    setZikr("SubhanAllah");
   };
 
-  const qiblaRelativeDirection = (qiblaDirection - deviceDirection + 360) % 360;
+  const removeZikr = (index) => {
+    const updatedList = [...customZikrList];
+    updatedList.splice(index, 1);
+    setCustomZikrList(updatedList);
+  };
 
-  if (!prayerTimes || !date || qiblaDirection === null || !calendar) {
+  if (qiblaDirection === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Typography variant="h6">Loading...</Typography>
       </div>
     );
   }
+
+  const qiblaRelativeDirection = (qiblaDirection - deviceDirection + 360) % 360;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
@@ -111,28 +103,10 @@ const IslamicTools = () => {
           <Typography variant="h5" className="text-center mb-4">
             Islamic Tools
           </Typography>
-
-          {/* Date Toggle */}
-          <div className="flex flex-col items-center mb-4">
-            <Typography variant="body1" className="mb-2">
-              {showIslamicDate ? "Islamic Date" : "Gregorian Date"}:
-            </Typography>
-            <Typography variant="h6" className="font-bold">
-              {showIslamicDate
-                ? `${date.hijri.day} ${date.hijri.month} ${date.hijri.year}`
-                : `${date.gregorian.day} ${date.gregorian.month} ${date.gregorian.year}`}
-            </Typography>
-            <Switch
-              checked={showIslamicDate}
-              onChange={() => setShowIslamicDate(!showIslamicDate)}
-              className="mt-2"
-            />
-          </div>
-
           {/* Qibla Compass */}
           <div className="flex flex-col items-center mb-4">
-            <Typography variant="body1" className="mb-2 font-semibold">
-              Qibla Direction
+            <Typography variant="body1" className="mb-2">
+              Qibla Direction:
             </Typography>
             <div
               className="h-40 w-40 rounded-full border-4 border-green-500 flex items-center justify-center relative bg-white shadow-lg"
@@ -140,41 +114,32 @@ const IslamicTools = () => {
                 transform: `rotate(${qiblaRelativeDirection}deg)`,
               }}
             >
-              <div
-                className="h-2 w-12 bg-red-500 absolute top-1/2 transform -translate-y-1/2"
-                style={{
-                  transformOrigin: "center",
-                }}
-              ></div>
               <div className="h-6 w-6 bg-green-500 rounded-full"></div>
             </div>
-            <Typography variant="body2" className="text-gray-600 mt-2">
-              Rotate your device until the red pointer aligns with the green circle to find the Qibla.
-            </Typography>
           </div>
-
-          {/* Tasbeeh Counter */}
-          <div className="flex flex-col items-center mb-4">
-            <TextField
-              label="Zikr"
-              value={zikr}
-              onChange={(e) => setZikr(e.target.value)}
-              variant="outlined"
-              className="mb-2"
-            />
-            <Typography variant="h4" className="font-bold text-green-600 mb-2">
-              {tasbeehCount}
-            </Typography>
-            <div className="flex gap-2">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => setTasbeehCount(tasbeehCount + 1)}
-              >
-                +1
-              </Button>
-              <Button variant="outlined" color="secondary" onClick={tasbeehReset}>
-                Reset
+          {/* Custom Zikr List */}
+          <div className="mb-4">
+            <Typography variant="h6" className="font-bold mb-2">Zikr List:</Typography>
+            <List>
+              {customZikrList.map((zikr, index) => (
+                <ListItem key={index} className="flex justify-between">
+                  <ListItemText primary={zikr} />
+                  <IconButton onClick={() => removeZikr(index)}>
+                    <Delete />
+                  </IconButton>
+                </ListItem>
+              ))}
+            </List>
+            <div className="flex items-center mt-2">
+              <TextField
+                label="Add Zikr"
+                value={newZikr}
+                onChange={(e) => setNewZikr(e.target.value)}
+                variant="outlined"
+                size="small"
+              />
+              <Button variant="contained" color="primary" onClick={addZikr} className="ml-2">
+                <Add />
               </Button>
             </div>
           </div>
