@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Typography, Switch, Card, CardContent, Button, TextField } from "@mui/material";
+import { Typography, Switch, Card, CardContent, Button, TextField, Box } from "@mui/material";
 
 const IslamicTools = () => {
   const [prayerTimes, setPrayerTimes] = useState(null);
@@ -11,7 +11,9 @@ const IslamicTools = () => {
   const [nextPrayer, setNextPrayer] = useState(null);
   const [calendar, setCalendar] = useState([]);
   const [ayah, setAyah] = useState(null);
- 
+  const [asmaAlHusna, setAsmaAlHusna] = useState([]);
+  const [todayName, setTodayName] = useState(null);
+
   const fetchDailyAyah = async () => {
     try {
       const response = await axios.get("https://api.alquran.cloud/v1/ayah/random/ur.junagarhi");
@@ -131,6 +133,37 @@ const IslamicTools = () => {
     setTasbeehCount(0);
     setZikr("SubhanAllah");
   };
+
+  const fetchAsmaAlHusna = async () => {
+    try {
+      const response = await axios.get("https://api.aladhan.com/v1/asmaAlHusna");
+      if (response.data && response.data.data) {
+        setAsmaAlHusna(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching Asma Al-Husna:", error);
+    }
+  };
+
+  // Fetch the Asma Al Husna names on initial load
+  useEffect(() => {
+    fetchAsmaAlHusna();
+  }, []);
+
+  useEffect(() => {
+    if (asmaAlHusna.length > 0) {
+      const todayIndex = new Date().getDate() % asmaAlHusna.length; // Cycle through names
+      setTodayName(asmaAlHusna[todayIndex]);
+    }
+  }, [asmaAlHusna]);
+
+  // Log today's name once it's updated
+  useEffect(() => {
+    if (todayName) {
+      console.log(todayName); // Log the updated todayName
+    }
+  }, [todayName]);
+
 
   if (!prayerTimes || !date || !calendar || !ayah) {
     return (
@@ -265,6 +298,25 @@ const IslamicTools = () => {
             </div>
           )}
         </CardContent>
+        <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      flexDirection="column" // Stack elements vertically
+    >
+      {todayName ? (
+        <>
+          <Typography variant="h4" align="center">
+            {todayName.name}
+          </Typography>
+          <Typography variant="subtitle1" align="center" style={{ marginTop: "10px" }}>
+            {todayName.en?.meaning || "Meaning not available"}
+          </Typography>
+        </>
+      ) : (
+        <Typography align="center">Loading today's name...</Typography>
+      )}
+    </Box>
       </Card>
     </div>
   );
