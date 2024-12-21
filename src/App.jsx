@@ -9,8 +9,57 @@ const IslamicTools = () => {
   const [tasbeehCount, setTasbeehCount] = useState(0);
   const [zikr, setZikr] = useState("SubhanAllah");
   const [nextPrayer, setNextPrayer] = useState(null);
-  const [calendar, setCalendar] = useState(null);
+  const [calendar, setCalendar] = useState([]);
+  const [ayah, setAyah] = useState(null);
+ 
+  const fetchDailyAyah = async () => {
+    try {
+      const response = await axios.get("https://api.alquran.cloud/v1/ayah/random/ur.junagarhi");
+      console.log(response.data); // Log the API response
+      const data = response.data.data;
+      setAyah({
+        text: data.text,
+        translation: data.translation,
+        surah: data.surah.name,
+        number: data.numberInSurah,
+        audioUrl: data.audioUrl, // Check if audioUrl is present
+      });
+    } catch (error) {
+      console.error("Error fetching Ayah:", error);
+      setAyah({
+        text: "آیت کو لوڈ کرنے میں خرابی۔ براہ کرم بعد میں کوشش کریں۔",
+        translation: "",
+        surah: "",
+        number: "",
+        audioUrl: "", // Ensure that the audioUrl is cleared in case of error
+      });
+    }
+  };
   
+
+  const notifyPrayerTime = () => {
+    if (nextPrayer) {
+      const notificationTime = new Date(nextPrayer.time).getTime() - 60000; // 1 minute before
+      setTimeout(() => {
+        new Notification(`It's time for ${nextPrayer.name} prayer!`);
+      }, notificationTime - Date.now());
+    }
+  };
+
+  useEffect(() => {
+    notifyPrayerTime();
+  }, [nextPrayer]);
+
+  useEffect(() => {
+    // Initial fetch of Ayah and Prayer times
+    fetchDailyAyah();
+
+    // Refresh Ayah every minute (60000 ms)
+    const interval = setInterval(fetchDailyAyah, 60 * 1000);
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, []);
 
   const KARACHI_COORDINATES = { latitude: 24.8607, longitude: 67.0011 };
 
@@ -44,8 +93,6 @@ const IslamicTools = () => {
       }
     };
 
-  
-
     fetchData();
   }, []);
 
@@ -60,11 +107,11 @@ const IslamicTools = () => {
       }));
       const upcoming = times.find(({ time }) => time > now) || times[0];
       const countdownInSeconds = Math.max(0, Math.floor((upcoming.time - now) / 1000));
-    
+
       const hours = Math.floor(countdownInSeconds / 3600);
       const minutes = Math.floor((countdownInSeconds % 3600) / 60);
       const seconds = countdownInSeconds % 60;
-    
+
       setNextPrayer({
         ...upcoming,
         countdown: `${hours.toString().padStart(2, "0")}:${minutes
@@ -72,7 +119,6 @@ const IslamicTools = () => {
           .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
       });
     };
-    
 
     const interval = setInterval(() => {
       calculateNextPrayer();
@@ -81,14 +127,12 @@ const IslamicTools = () => {
     return () => clearInterval(interval);
   }, [prayerTimes]);
 
-  
-
   const tasbeehReset = () => {
     setTasbeehCount(0);
     setZikr("SubhanAllah");
   };
 
-  if (!prayerTimes || !date  || !calendar) {
+  if (!prayerTimes || !date || !calendar || !ayah) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Typography variant="h6">Loading...</Typography>
@@ -96,9 +140,9 @@ const IslamicTools = () => {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+      {/* Islamic Tools Header */}
       <Card className="w-full max-w-md shadow-md mb-4">
         <CardContent>
           <Typography variant="h5" className="text-center mb-4">
@@ -121,8 +165,6 @@ const IslamicTools = () => {
               className="mt-2"
             />
           </div>
-
-
 
           {/* Tasbeeh Counter */}
           <div className="flex flex-col items-center mb-4">
@@ -151,37 +193,77 @@ const IslamicTools = () => {
           </div>
 
           {/* Prayer Countdown */}
-     {/* Prayer Countdown */}
-<div className="flex flex-col items-center mb-4">
-  <Typography variant="body1" className="mb-2">
-    Next Prayer: {nextPrayer?.name}
-  </Typography>
-  <Typography variant="h6" className="font-bold">
-    Time Left: {nextPrayer?.countdown || "00:00:00"}
-  </Typography>
-</div>
-
+          <div className="flex flex-col items-center mb-4">
+            <Typography variant="body1" className="mb-2">
+              Next Prayer: {nextPrayer?.name}
+            </Typography>
+            <Typography variant="h6" className="font-bold">
+              Time Left: {nextPrayer?.countdown || "00:00:00"}
+            </Typography>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Hijri Month Calendar */}
-      <Card className="w-full max-w-md shadow-md">
+      {/* Hijri Calendar */}
+      <Card className="w-full max-w-md shadow-md mb-4">
         <CardContent>
           <Typography variant="h6" className="text-center mb-2">
             {date.hijri.month} {date.hijri.year}
           </Typography>
           <div className="grid grid-cols-7 gap-2">
-            {calendar.map((day, index) => (
-              <div
-                key={index}
-                className={`text-center py-2 rounded ${
-                  day.date.gregorian.day === date.gregorian.day ? "bg-green-500 text-white" : "bg-gray-200"
-                }`}
-              >
-                {day.date.hijri.day}
-              </div>
-            ))}
+            {calendar.length > 0 &&
+              calendar.map((day, index) => (
+                <div
+                  key={index}
+                  className={`text-center py-2 rounded ${
+                    day.date.gregorian.day === date.gregorian.day
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200"
+                  }`}
+                >
+                  {day.date.hijri.day}
+                </div>
+              ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Ayah of the Day */}
+      <Card className="w-full max-w-md shadow-md mb-4">
+        <CardContent>
+          <Typography variant="h5" className="text-center mb-2">
+            آج کی آیت
+          </Typography>
+
+          <Typography
+            variant="body1"
+            className="text-right mb-4 font-bold text-green-700"
+            style={{ direction: "rtl" }}
+          >
+            {ayah?.text}
+          </Typography>
+
+          <Typography
+            variant="body2"
+            className="text-right mb-4 font-medium text-gray-700"
+            style={{ direction: "rtl" }}
+          >
+            {ayah?.translation}
+          </Typography>
+
+          <Typography variant="body2" className="text-center text-gray-500">
+            {ayah?.surah} - آیت {ayah?.number}
+          </Typography>
+
+          {/* Audio Player */}
+          {ayah?.audioUrl && (
+            <div className="mt-4">
+              <audio controls className="w-full">
+                <source src={ayah.audioUrl} type="audio/mpeg" />
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
