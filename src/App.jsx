@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Typography, Switch, Card, CardContent, Button, TextField, Box } from "@mui/material";
+import { Typography, Switch, Card, CardContent, Button, TextField, Box, Container , Grid , CircularProgress } from "@mui/material";
 
 const IslamicTools = () => {
   const [prayerTimes, setPrayerTimes] = useState(null);
@@ -13,6 +13,10 @@ const IslamicTools = () => {
   const [ayah, setAyah] = useState(null);
   const [asmaAlHusna, setAsmaAlHusna] = useState([]);
   const [todayName, setTodayName] = useState(null);
+  const [hadith, setHadith] = useState(null); // State to store the fetched Hadith
+  const [loading, setLoading] = useState(false); // Loading state
+  const [error, setError] = useState(null); // Error state
+
 
   const fetchDailyAyah = async () => {
     try {
@@ -163,6 +167,33 @@ const IslamicTools = () => {
       console.log(todayName); // Log the updated todayName
     }
   }, [todayName]);
+
+
+  // Function to fetch Hadith from the API
+  const fetchHadith = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('https://islamic-tools-backend-code-7zi4.vercel.app/hadiths');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setHadith(data); // Store the Hadith in state
+      setError(null); // Clear any previous error
+    } catch (err) {
+      setError('Error fetching Hadith. Please try again later.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch Hadith on component mount
+  useEffect(() => {
+    fetchHadith();
+  }, []);
 
 
   if (!prayerTimes || !date || !calendar || !ayah) {
@@ -317,7 +348,94 @@ const IslamicTools = () => {
         <Typography align="center">Loading today's name...</Typography>
       )}
     </Box>
+ 
       </Card>
+
+      <Box
+  display="flex"
+  justifyContent="center"
+  alignItems="center"
+  flexDirection="column"
+  width="100%"
+  padding={2} // Add padding for spacing
+>
+  <Grid container spacing={2} justifyContent="center">
+    {/* Loading state */}
+    {loading && (
+      <Grid item xs={12}>
+        <CircularProgress />
+        <Typography variant="h6" align="center" color="primary">
+          Loading...
+        </Typography>
+      </Grid>
+    )}
+
+    {/* Error state */}
+    {error && (
+      <Grid item xs={12}>
+        <Typography variant="h6" align="center" color="error">
+          {error}
+        </Typography>
+      </Grid>
+    )}
+
+    {/* Display Hadith if available */}
+    {hadith && (
+      <Grid item xs={12} sm={10} md={8} lg={6}>
+        <Card sx={{ maxWidth: "100%", margin: "auto" }}>
+          <CardContent>
+            <Typography variant="h5" component="div" gutterBottom>
+              Hadith #{hadith.hadithNumber}
+            </Typography>
+            <Typography variant="h6" component="div" gutterBottom>
+              Book: {hadith.bookSlug}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              <strong>Status:</strong> {hadith.status}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              <strong>Chapter:</strong> {hadith.chapterId}
+            </Typography>
+            <Box
+              sx={{
+                maxHeight: "200px", // Limit height
+                overflowY: "auto", // Scrollable if content is large
+              }}
+            >
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>Urdu:</strong> {hadith.hadithUrdu}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>Arabic:</strong> {hadith.hadithArabic}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>Hadith Narrator (Urdu):</strong> {hadith.urduNarrator}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>Hadith Narrator (English):</strong> {hadith.englishNarrator}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>Heading:</strong> {hadith.headingEnglish}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                <strong>English:</strong> {hadith.hadithEnglish}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              color="primary"
+              sx={{ marginTop: 2 }}
+              onClick={fetchHadith}
+            >
+              Next Hadith
+            </Button>
+          </CardContent>
+        </Card>
+      </Grid>
+    )}
+  </Grid>
+</Box>
+
     </div>
   );
 };
