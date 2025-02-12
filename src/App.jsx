@@ -69,38 +69,38 @@ const IslamicTools = () => {
 
   const KARACHI_COORDINATES = { latitude: 24.8607, longitude: 67.0011 };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get(
-          `https://api.aladhan.com/v1/timings?latitude=${KARACHI_COORDINATES.latitude}&longitude=${KARACHI_COORDINATES.longitude}`
-        );
-        const data = response.data.data;
-        setPrayerTimes(data.timings);
-        setDate({
-          gregorian: {
-            day: data.date.gregorian.day,
-            month: data.date.gregorian.month.en,
-            year: data.date.gregorian.year,
-          },
-          hijri: {
-            day: data.date.hijri.day,
-            month: data.date.hijri.month.en,
-            year: data.date.hijri.year,
-          },
-        });
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const response = await axios.get(
+        `https://api.aladhan.com/v1/timings?latitude=${KARACHI_COORDINATES.latitude}&longitude=${KARACHI_COORDINATES.longitude}&method=1&school=1&timezonestring=Asia/Karachi`
+      );
+      const data = response.data.data;
+      setPrayerTimes(data.timings);
+      setDate({
+        gregorian: {
+          day: data.date.gregorian.day,
+          month: data.date.gregorian.month.en,
+          year: data.date.gregorian.year,
+        },
+        hijri: {
+          day: data.date.hijri.day,
+          month: data.date.hijri.month.en,
+          year: data.date.hijri.year,
+        },
+      });
 
-        const calendarResponse = await axios.get(
-          `https://api.aladhan.com/v1/hijriCalendarByCity?city=Karachi&country=Pakistan&month=${data.date.hijri.month.number}&year=${data.date.hijri.year}`
-        );
-        setCalendar(calendarResponse.data.data);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
+      const calendarResponse = await axios.get(
+        `https://api.aladhan.com/v1/hijriCalendarByCity?city=Karachi&country=Pakistan&month=${data.date.hijri.month.number}&year=${data.date.hijri.year}&adjustment=0`
+      );
+      setCalendar(calendarResponse.data.data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
   useEffect(() => {
     if (!prayerTimes) return;
