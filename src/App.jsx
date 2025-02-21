@@ -18,30 +18,7 @@ const IslamicTools = () => {
   const [error, setError] = useState(null); // Error state
 
 
-  const fetchDailyAyah = async () => {
-    try {
-      const response = await axios.get("https://api.alquran.cloud/v1/ayah/random/ur.junagarhi");
-      console.log(response.data); // Log the API response
-      const data = response.data.data;
-      setAyah({
-        text: data.text,
-        translation: data.translation,
-        surah: data.surah.name,
-        number: data.numberInSurah,
-        audioUrl: data.audioUrl, // Check if audioUrl is present
-      });
-    } catch (error) {
-      console.error("Error fetching Ayah:", error);
-      setAyah({
-        text: "آیت کو لوڈ کرنے میں خرابی۔ براہ کرم بعد میں کوشش کریں۔",
-        translation: "",
-        surah: "",
-        number: "",
-        audioUrl: "", // Ensure that the audioUrl is cleared in case of error
-      });
-    }
-  };
-  
+
 
   const notifyPrayerTime = () => {
     if (nextPrayer) {
@@ -56,16 +33,6 @@ const IslamicTools = () => {
     notifyPrayerTime();
   }, [nextPrayer]);
 
-  useEffect(() => {
-    // Initial fetch of Ayah and Prayer times
-    fetchDailyAyah();
-
-    // Refresh Ayah every minute (60000 ms)
-    const interval = setInterval(fetchDailyAyah, 60 * 1000);
-
-    // Cleanup on unmount
-    return () => clearInterval(interval);
-  }, []);
 
   const KARACHI_COORDINATES = { latitude: 24.8607, longitude: 67.0011 };
 
@@ -196,7 +163,7 @@ useEffect(() => {
   }, []);
 
 
-  if (!prayerTimes || !date || !calendar || !ayah) {
+  if (!prayerTimes || !date || !calendar ) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Typography variant="h6">Loading...</Typography>
@@ -352,6 +319,31 @@ useEffect(() => {
       </Card>
 
       <Box
+  display="flex"
+  justifyContent="center"
+  alignItems="center"
+  flexDirection="column"
+  width="100%"
+  padding={2} // Add padding for spacing
+>
+  <Grid container spacing={2} justifyContent="center">
+    {/* Loading state */}
+    {loading && (
+      <Grid item xs={12}>
+        <CircularProgress />
+        <Typography variant="h6" align="center" color="primary">
+          Loading...
+        </Typography>
+      </Grid>
+    )}
+
+    {/* Error state */}
+   
+  </Grid>
+</Box>
+
+
+<Box
   display="flex"
   justifyContent="center"
   alignItems="center"
